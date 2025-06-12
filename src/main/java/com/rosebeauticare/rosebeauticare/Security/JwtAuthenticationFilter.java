@@ -1,63 +1,76 @@
 package com.rosebeauticare.rosebeauticare.Security;
 
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.beans.factory.annotation.Autowired;
-
+import org.springframework.lang.NonNull;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Collections;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     @Value("${jwt.secret}")
     private String jwtSecret;
 
     @Autowired
-    private UserDetailsService userDetailsService;
+    private JwtUtil jwtUtil;
 
     @Override
     protected void doFilterInternal(
-            @org.springframework.lang.NonNull HttpServletRequest request,
-            @org.springframework.lang.NonNull HttpServletResponse response,
-            @org.springframework.lang.NonNull FilterChain filterChain)
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain)
             throws ServletException, IOException {
         String header = request.getHeader("Authorization");
-        String username = null;
-        String jwt = null;
+        logger.debug("Processing request for URI: {}", request.getRequestURI());
 
         if (header != null && header.startsWith("Bearer ")) {
-            jwt = header.substring(7);
-            try {
-                username = Jwts.parser()
-                        .verifyWith(Keys.hmacShaKeyFor(jwtSecret.getBytes())) // Updated method
-                        .build()
-                        .parseSignedClaims(jwt)
-                        .getPayload()
-                        .getSubject();
+            String jwt = header.substring(7);
+            logger.debug("JWT token received: {}", jwt.substring(0, Math.min(jwt.length(), 20)) + "...");
 
-            } catch (Exception e) {
-                // Log error if needed
+            if (!jwtUtil.validateToken(jwt)) {
+                logger.error("Invalid JWT token for URI: {}", request.getRequestURI());
+                filterChain.doFilter(request, response);
+                return;
             }
-        }
 
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                    userDetails, null, userDetails.getAuthorities());
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            try {
+                String username = jwtUtil.getUsernameFromToken(jwt);
+                String role = jwtUtil.getRoleFromToken(jwt);
+                logger.debug("Extracted username: {}, role: {}", username, role);
+
+                if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                    SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);
+                    logger.debug("Created authority: {}", authority.getAuthority());
+
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            username, null, Collections.singletonList(authority));
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    logger.info("Authentication set for user: {} with role: {}", username, role);
+                } else {
+                    logger.debug("Authentication not set: username is {} or authentication already exists", username);
+                }
+            } catch (Exception e) {
+                logger.error("JWT processing failed for token: {}. Error: {}", 
+                    jwt.substring(0, Math.min(jwt.length(), 20)) + "...", e.getMessage());
+            }
+        } else {
+            logger.debug("No valid Authorization header found for URI: {}", request.getRequestURI());
         }
 
         filterChain.doFilter(request, response);

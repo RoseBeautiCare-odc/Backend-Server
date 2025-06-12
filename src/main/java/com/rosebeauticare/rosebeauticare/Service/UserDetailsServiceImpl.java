@@ -17,10 +17,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        Staff staff = staffRepository.findByEmail(username);
-        if (staff == null) {
-            throw new UsernameNotFoundException("User not found with email: " + username);
-        }
+        Staff staff = staffRepository.findByEmail(username).orElseThrow(() -> 
+            new UsernameNotFoundException("User not found with email: " + username));
         return User.builder()
                 .username(staff.getEmail())
                 .password(staff.getSecuritypin())
