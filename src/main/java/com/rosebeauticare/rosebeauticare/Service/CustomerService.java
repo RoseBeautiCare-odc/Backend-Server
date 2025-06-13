@@ -21,10 +21,11 @@ public class CustomerService {
         if (customer.getPhonenumber() == null || customer.getPhonenumber().isEmpty()) {
             throw new IllegalArgumentException("Phone number is required");
         }
-        if (customer.getAddress() == null || 
-            customer.getAddress().getTownOrVillage() == null || customer.getAddress().getTownOrVillage().isEmpty() ||
-            customer.getAddress().getDistrict() == null || customer.getAddress().getDistrict().isEmpty() ||
-            customer.getAddress().getState() == null || customer.getAddress().getState().isEmpty()) {
+        if (customer.getAddress() == null ||
+                customer.getAddress().getTownOrVillage() == null || customer.getAddress().getTownOrVillage().isEmpty()
+                ||
+                customer.getAddress().getDistrict() == null || customer.getAddress().getDistrict().isEmpty() ||
+                customer.getAddress().getState() == null || customer.getAddress().getState().isEmpty()) {
             throw new IllegalArgumentException("Complete address is required");
         }
         customer.setCreatedAt(LocalDateTime.now());
@@ -61,8 +62,10 @@ public class CustomerService {
 
     public Customer updateCustomer(String id, Customer updatedCustomer) {
         Customer existingCustomer = getCustomerById(id);
-        if (updatedCustomer.getName() != null) existingCustomer.setName(updatedCustomer.getName());
-        if (updatedCustomer.getPhonenumber() != null) existingCustomer.setPhonenumber(updatedCustomer.getPhonenumber());
+        if (updatedCustomer.getName() != null)
+            existingCustomer.setName(updatedCustomer.getName());
+        if (updatedCustomer.getPhonenumber() != null)
+            existingCustomer.setPhonenumber(updatedCustomer.getPhonenumber());
         if (updatedCustomer.getAddress() != null) {
             if (updatedCustomer.getAddress().getTownOrVillage() != null) {
                 existingCustomer.getAddress().setTownOrVillage(updatedCustomer.getAddress().getTownOrVillage());
@@ -74,9 +77,12 @@ public class CustomerService {
                 existingCustomer.getAddress().setState(updatedCustomer.getAddress().getState());
             }
         }
-        if (updatedCustomer.getEmail() != null) existingCustomer.setEmail(updatedCustomer.getEmail());
-        if (updatedCustomer.getSex() != null) existingCustomer.setSex(updatedCustomer.getSex());
-        if (updatedCustomer.getMaritalstatus() != null) existingCustomer.setMaritalstatus(updatedCustomer.getMaritalstatus());
+        if (updatedCustomer.getEmail() != null)
+            existingCustomer.setEmail(updatedCustomer.getEmail());
+        if (updatedCustomer.getSex() != null)
+            existingCustomer.setSex(updatedCustomer.getSex());
+        if (updatedCustomer.getMaritalstatus() != null)
+            existingCustomer.setMaritalstatus(updatedCustomer.getMaritalstatus());
         return customerRepository.save(existingCustomer);
     }
 
