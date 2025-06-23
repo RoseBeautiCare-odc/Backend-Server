@@ -5,7 +5,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -18,9 +17,8 @@ public class Measurement {
     private String id;
     private String customerId;
     private String serviceType;
-    private Map<String, Double> measurements; // Key: measurement name, Value: measurement value
+    private Map<String, Double> measurementDetails;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;    
+    private LocalDateTime updatedAt;
 
-    
 }

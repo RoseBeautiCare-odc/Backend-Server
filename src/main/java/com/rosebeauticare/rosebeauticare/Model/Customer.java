@@ -5,7 +5,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 
 @Document(collection = "customers")
@@ -17,11 +16,12 @@ public class Customer {
     private String id;
     private String name;
     private String phonenumber;
+    private String alternatePhoneNumber;
     private Address address;
-    private String email; // Optional
-    private LocalDateTime createdAt;
-    private String sex;
+    private String gender;
     private String maritalstatus;
+    private String customerSince;
+    private LocalDateTime createdAt;
 
     @Data
     @NoArgsConstructor

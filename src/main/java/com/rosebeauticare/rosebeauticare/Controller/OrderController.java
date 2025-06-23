@@ -2,224 +2,113 @@ package com.rosebeauticare.rosebeauticare.Controller;
 
 import com.rosebeauticare.rosebeauticare.Model.Order;
 import com.rosebeauticare.rosebeauticare.Service.OrderService;
+import org.bson.types.ObjectId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @RestController
-@RequestMapping("/api/orders")
+@RequestMapping("/api/order")
 public class OrderController {
+
+    private static final Logger logger = LoggerFactory.getLogger(OrderController.class);
 
     @Autowired
     private OrderService orderService;
 
-    // Create a new order (admin or manager only)
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(consumes = { "multipart/form-data" })
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map<String, Object>> createOrder(
+    public ResponseEntity<?> createOrder(
             @RequestPart("order") Order order,
-            @RequestPart(value = "clothImages", required = false) MultipartFile[] clothImages) throws IOException {
+            @RequestPart(value = "images", required = false) List<MultipartFile> images) {
         try {
-            Order createdOrder = orderService.createOrder(order, clothImages);
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Successfully created order: " + createdOrder.getOrderNumber());
-            response.put("data", createdOrder);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException | IOException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", e.getMessage());
-            response.put("data", null);
-            return ResponseEntity.badRequest().body(response);
-        }
-    }
-
-    // Get order by ID
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TAILOR', 'CUTTING_MASTER')")
-    public ResponseEntity<Map<String, Object>> getOrderById(@PathVariable String id) {
-        try {
-            Order order = orderService.getOrderById(id);
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Successfully retrieved order: " + order.getOrderNumber());
-            response.put("data", order);
-            return ResponseEntity.ok(response);
+            Order savedOrder = orderService.createOrder(order, images);
+            logger.info("Order created successfully: {}", savedOrder.getId());
+            return ResponseEntity.ok(new OrderResponseDTO(savedOrder.getId(), "Order created successfully"));
         } catch (IllegalArgumentException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", e.getMessage());
-            response.put("data", null);
-            return ResponseEntity.status(404).body(response);
+            logger.error("Invalid input while creating order: {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Invalid input: " + e.getMessage());
+        } catch (Exception e) {
+            logger.error("Error creating order: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Server error: " + e.getMessage());
         }
     }
 
-    // Get orders by customer ID
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<?> getOrderById(@PathVariable String id) {
+        try {
+            if (!ObjectId.isValid(id)) {
+                logger.error("Invalid ObjectId format: {}", id);
+                return ResponseEntity.badRequest().body("Invalid order ID format");
+            }
+            Order order = orderService.getOrderById(id);
+            logger.info("Fetched order: {}", id);
+            return ResponseEntity.ok(order);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid input for order ID: {}: {}", id, e.getMessage());
+            return ResponseEntity.badRequest().body("Invalid input: " + e.getMessage());
+        } catch (Exception e) {
+            logger.error("Error fetching order ID: {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Server error: " + e.getMessage());
+        }
+    }
+
     @GetMapping("/customer/{customerId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map<String, Object>> getOrdersByCustomer(@PathVariable String customerId) {
+    public ResponseEntity<?> getOrdersByCustomerId(@PathVariable String customerId) {
         try {
+            if (!ObjectId.isValid(customerId)) {
+                logger.error("Invalid ObjectId format: {}", customerId);
+                return ResponseEntity.badRequest().body("Invalid customer ID format");
+            }
             List<Order> orders = orderService.getOrdersByCustomerId(customerId);
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Successfully retrieved orders for customer: " + customerId);
-            response.put("data", orders);
-            return ResponseEntity.ok(response);
+            logger.info("Fetched {} orders for customer ID: {}", orders.size(), customerId);
+            return ResponseEntity.ok(orders);
         } catch (IllegalArgumentException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", e.getMessage());
-            response.put("data", null);
-            return ResponseEntity.status(404).body(response);
+            logger.error("Invalid input for customer ID: {}: {}", customerId, e.getMessage());
+            return ResponseEntity.badRequest().body("Invalid input: " + e.getMessage());
+        } catch (Exception e) {
+            logger.error("Error fetching orders for customer ID: {}: {}", customerId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Server error: " + e.getMessage());
         }
     }
 
-    // Get orders by staff ID (created or assigned)
-    @GetMapping("/staff/{staffId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TAILOR', 'CUTTING_MASTER')")
-    public ResponseEntity<Map<String, Object>> getOrdersByStaff(@PathVariable String staffId) {
+    @GetMapping("/customer/all")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<?> getAllOrders() {
         try {
-            List<Order> orders = orderService.getOrdersByStaffId(staffId);
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Successfully retrieved orders for staff: " + staffId);
-            response.put("data", orders);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", e.getMessage());
-            response.put("data", null);
-            return ResponseEntity.status(404).body(response);
+            List<Order> orders = orderService.getAllOrders();
+            logger.info("Fetched {} orders", orders.size());
+            return ResponseEntity.ok(orders);
+        } catch (Exception e) {
+            logger.error("Error fetching all orders: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Server error: " + e.getMessage());
         }
+    }
+}
+
+class OrderResponseDTO {
+    private String id;
+    private String message;
+
+    public OrderResponseDTO(String id, String message) {
+        this.id = id;
+        this.message = message;
     }
 
-    // Update item status (e.g., cutting completed)
-    @PutMapping("/{id}/items/{itemId}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TAILOR', 'CUTTING_MASTER')")
-    public ResponseEntity<Map<String, Object>> updateItemStatus(
-            @PathVariable String id,
-            @PathVariable String itemId,
-            @RequestBody Map<String, String> statusUpdate) {
-        try {
-            String status = statusUpdate.get("status");
-            Order updatedOrder = orderService.updateItemStatus(id, itemId, status);
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Successfully updated item status for order: " + updatedOrder.getOrderNumber());
-            response.put("data", updatedOrder);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", e.getMessage());
-            response.put("data", null);
-            return ResponseEntity.badRequest().body(response);
-        }
+    public String getId() {
+        return id;
     }
 
-    // Assign cutting master or tailor to an item (admin only)
-    @PutMapping("/{id}/assign")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Object>> assignStaff(
-            @PathVariable String id,
-            @RequestBody Map<String, Object> assignment) {
-        try {
-            String itemId = (String) assignment.get("itemId");
-            String cuttingMaster = (String) assignment.get("cuttingMaster");
-            String tailor = (String) assignment.get("tailor");
-            Order updatedOrder = orderService.assignStaff(id, itemId, cuttingMaster, tailor);
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Successfully assigned staff for order: " + updatedOrder.getOrderNumber());
-            response.put("data", updatedOrder);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", e.getMessage());
-            response.put("data", null);
-            return ResponseEntity.badRequest().body(response);
-        }
+    public String getMessage() {
+        return message;
     }
-
-    // Get all orders (admin or manager only)
-    @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map<String, Object>> getAllOrders() {
-        List<Order> orders = orderService.getAllOrders();
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "Successfully retrieved all orders");
-        response.put("data", orders);
-        return ResponseEntity.ok(response);
-    }
-    // Delete an order (admin or manager only)
-    @DeleteMapping("/{id}") 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map<String, Object>> deleteOrder(@PathVariable String id) {
-        try {
-            orderService.deleteOrder(id);
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Successfully deleted order with ID: " + id);
-            response.put("data", null);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", e.getMessage());
-            response.put("data", null);
-            return ResponseEntity.status(404).body(response);
-        }
-    }
-    // Update an order (admin or manager only)
-    @PutMapping("/{id}")    
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map<String, Object>> updateOrder(
-            @PathVariable String id,
-            @RequestPart("order") Order updatedOrder,
-            @RequestPart(value = "clothImages", required = false) MultipartFile[] clothImages) throws IOException {
-        try {
-            Order order = orderService.updateOrder(id, updatedOrder, clothImages);
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Successfully updated order: " + order.getOrderNumber());
-            response.put("data", order);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException | IOException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", e.getMessage());
-            response.put("data", null);
-            return ResponseEntity.badRequest().body(response);
-        }
-    }
-    // Get orders by status (admin or manager only)
-    @GetMapping("/status/{status}")     
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map<String, Object>> getOrdersByStatus(@PathVariable String status) {
-        try {
-            List<Order> orders = orderService.getOrdersByStatus(status);
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Successfully retrieved orders with status: " + status);
-            response.put("data", orders);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", e.getMessage());
-            response.put("data", null);
-            return ResponseEntity.status(404).body(response);
-        }
-    }
-    // Get orders assigned to a specific staff (admin or manager only)
-    @GetMapping("/assigned/{staffId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<Map<String, Object>> getOrdersAssignedToStaff(@PathVariable String staffId) {
-        try {
-            List<Order> orders = orderService.getOrdersAssignedToStaff(staffId);
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Successfully retrieved orders assigned to staff: " + staffId);
-            response.put("data", orders);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", e.getMessage());
-            response.put("data", null);
-            return ResponseEntity.status(404).body(response);
-        }
-    }
-    
 }

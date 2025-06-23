@@ -5,46 +5,49 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Document(collection = "orders")
-@NoArgsConstructor  
+@NoArgsConstructor
 @AllArgsConstructor
 @Data
 public class Order {
     @Id
     private String id;
-    private String orderNumber;
     private String customerId;
+    private String customerName;
+    private LocalDate orderDate;
+    private LocalDate dueDate;
     private String staffId;
-    private String serviceType;
-    private String subType;
-    private String measurementId;
-    private List<Item> items;
-    private String status;
-    //completed
-    private Double totalPrice;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    
+    private String staffName;
+    private String MeasurementId;
+    private List<ClothItem> clothItems;
+    private List<Image> images;
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class Item {
-        private  String itemId;
-        private String  status;
-        private String cuttingMaster;
-        private String tailor;
-        private LocalDateTime cuttingCompletedAt;
-        private LocalDateTime stitchingCompletedAt;
-        private LocalDateTime additionalworkCompletedAt;
-        private LocalDateTime ironingCompletedAt;
-        private LocalDateTime qualityCheckCompletedAt;
-        private Double price;
-        private String clothImage;
-        private String notes;
+    public static class ClothItem {
+        private String serviceType; 
+        private String subService; 
+        private Customization customization;
     }
-       
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Customization {
+        private String type; 
+        private Map<String, Object> details; 
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Image {
+        private String fileId; 
+        private String contentType;
+    }
 }
